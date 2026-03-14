@@ -12,6 +12,7 @@
 #include <sgct/sgctexports.h>
 
 #include <sgct/math.h>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -40,7 +41,7 @@ public:
         std::unique_ptr<Image> frameBufferImage;
         std::unique_ptr<std::thread> captureThread;
         std::mutex* mutex = nullptr;
-        bool isRunning = false; // needed for test if running without join
+        std::atomic_bool isRunning = false; // needed for test if running without join
     };
 
     ScreenCapture(const Window& window, ScreenCapture::EyeIndex ei, int bytesPerColor,

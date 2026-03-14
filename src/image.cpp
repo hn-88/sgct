@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <chrono>
 #include <csetjmp>
+#include <cstdlib>
 #include <cstdio>
 #include <stdexcept>
 #include <string>
@@ -70,6 +71,7 @@ namespace sgct {
 Image::~Image() {
     if (_data) {
         stbi_image_free(_data);
+        _data = nullptr;
     }
 }
 
@@ -141,6 +143,7 @@ void Image::save(const std::filesystem::path& filename) {
         nullptr
     );
     if (!png) {
+        fclose(fp);
         throw Err(9009, "Failed to create PNG struct");
     }
 
@@ -159,11 +162,14 @@ void Image::save(const std::filesystem::path& filename) {
 
     png_infop info = png_create_info_struct(png);
     if (!info) {
+        png_destroy_write_struct(&png, nullptr);
+        fclose(fp);
         throw Err(9010, "Failed to create PNG info struct");
     }
 
     if (setjmp(png_jmpbuf(png))) {
         png_destroy_write_struct(&png, &info);
+        fclose(fp);
         throw Err(9011, "One of the called PNG functions failed");
     }
 
@@ -266,13 +272,16 @@ void Image::allocateOrResizeData() {
 
     if (_data && _dataSize != dataSize) {
         // Reallocate if needed
-        delete[] _data;
+        stbi_image_free(_data);
         _data = nullptr;
         _dataSize = 0;
     }
 
     if (!_data) {
-        _data = new unsigned char[dataSize];
+        _data = static_cast<unsigned char*>(std::malloc(dataSize));
+        if (!_data) {
+            throw Err(9013, std::format("Failed to allocate {} bytes", dataSize));
+        }
         _dataSize = dataSize;
 
         Log::Debug(std::format(
